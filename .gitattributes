@@ -1,0 +1,66 @@
+# Set default behavior to automatically normalize line endings
+* text=auto eol=lf
+
+# Source code
+*.cs     text diff=csharp
+*.vb     text diff=csharp
+*.fs     text diff=csharp
+*.fsx    text diff=csharp
+*.razor  text diff=html
+*.cshtml text diff=html
+*.vbhtml text diff=html
+
+# Web files
+*.html   text diff=html
+*.css    text diff=css
+*.js     text
+*.ts     text
+*.json   text
+*.xml    text
+*.yml    text
+*.yaml   text
+
+# Project and solution files
+*.csproj text
+*.vbproj text
+*.fsproj text
+*.sln    text eol=crlf
+
+# Config files
+*.config text
+*.props  text
+*.targets text
+*.nuspec text
+*.resx   text
+
+# Documentation
+*.md     text diff=markdown
+*.txt    text
+*.rst    text
+
+# Shell scripts
+*.sh     text eol=lf
+*.ps1    text eol=crlf
+*.cmd    text eol=crlf
+*.bat    text eol=crlf
+
+# Binary files - do not modify
+*.png    binary
+*.jpg    binary
+*.jpeg   binary
+*.gif    binary
+*.ico    binary
+*.svg    binary
+*.ttf    binary
+*.woff   binary
+*.woff2  binary
+*.eot    binary
+*.otf    binary
+*.pdf    binary
+*.zip    binary
+*.tar    binary
+*.gz     binary
+*.dll    binary
+*.exe    binary
+*.pdb    binary
+*.nupkg  binary
