@@ -7,12 +7,25 @@
 <body>
 
     <div style="border: 1px solid black; padding: 10px; width:350px;">
-        <p>Testing 123 ..</p>
-        <button onclick="uploadFileWithResponseStreaming()">Upload</button>
+        <p>stream/api/v1/streamResponse ..</p>
+        <button onclick="responseStreaming_v1()">Fetch</button>
         <br />
         <br />
         <div style="display: flex">
             <label id="progress" style="width: 256px">Progress ..</label>
+            <button onclick="cancelUpload()">Cancel</button>
+        </div>
+    </div>
+
+
+    <div style="border: 1px solid black; padding: 10px; width:350px;">
+        <p>stream/api/v2/streamResponse ..</p>
+        <input type="file" id="fileInput_v2" />
+        <button onclick="responseStreaming_v2()">Upload</button>
+        <br />
+        <br />
+        <div style="display: flex">
+            <label id="progress_v2" style="width: 256px">Progress ..</label>
             <button onclick="cancelUpload()">Cancel</button>
         </div>
     </div>
@@ -31,10 +44,11 @@
             }
         }
 
-        async function uploadFileWithResponseStreaming() {
+        // stream/api/v1/streamResponse
+        async function responseStreaming_v1() {
             const progressLabel = document.getElementById('progress');
 
-            const response = await fetch('/stream/streamResponse',
+            const response = await fetch('/stream/api/v1/streamResponse',
                 {
                     method: 'POST',
                     body: null,
@@ -88,6 +102,98 @@
 
                 console.log('Response fully received');
                 alert('Response fully received');
+            }
+            catch (error) {
+                console.error(error);
+
+                if (error.name === 'AbortError') {
+                    progressLabel.innerText = `Aborted`;
+
+                    alert(`The request is cancelled.`);
+                }
+                else {
+                    progressLabel.innerText = `An error occurred`;
+
+                    alert(`An error occurred during file upload.`);
+                }
+            }
+        }
+
+        // stream/api/v2/streamResponse
+        async function responseStreaming_v2() {
+            const progressLabel = document.getElementById('progress_v2');
+            const fileInput = document.getElementById('fileInput_v2');
+            const selectedFile = fileInput.files[0];
+
+            const response = await fetch('/stream/api/v2/streamResponse',
+                {
+                    method: 'POST',
+                    headers: {
+                        'X-File-Name': selectedFile.name,
+                        'X-File-Content-Type': selectedFile.type || 'application/octet-stream',
+                        'X-File-Size': selectedFile.size.toString(),
+                        'Content-Type': selectedFile.type || 'application/octet-stream'
+                    },
+                    body: selectedFile,
+                    duplex: 'half',
+                    signal: cancellationSignal
+                });
+
+            // When UI opens a stream reader to the response, the boundaries at which the stream reader reads may not necessarily align with the chunks sent by backend API
+            // Therefore, there must be a way to tell end of 1 line of response (in case the response is line by line, say)
+
+            console.log('fetch called ..');
+
+            // TODO : Test this
+
+            //if (!response.ok) {
+            //    const text = await response.text();
+            //    throw new Error(`HTTP ${response.status}: ${text}`);
+            //}
+
+
+            const reader = response.body.getReader(); // -------------- (A) Get a stream reader for the response
+            const textDecoder = new TextDecoder();
+
+            console.log('response reader acquired ..');
+
+            let lastLine = ''; // This is placeholder for residue left over after end of a valid json string
+            let lineCount = 0;
+            try {
+                while (true) {
+                    const { value, done } = await reader.read(); // -------------- (B) // Read available chunk from the stream; these are raw bytes
+
+                    if (done) {
+                        console.log('response finished ..');
+                        progressLabel.innerText = `Response completed`;
+
+                        break;
+                    }
+                    console.log('Received raw chunk of bytes: %d', value.byteLength);
+
+                    let textValue = textDecoder.decode(value); // -------------- (C) // Convert raw bytes to string
+
+                    let mergedText = `${lastLine}${textValue}`;
+
+                    const lines = mergedText.split(/\r\n|[\r\n]/g);  // -------------- (D) In my case, I'm sending chunks separated by newline
+
+                    lastLine = lines.pop() || '';
+
+                    for (const line of lines) {
+                        lineCount++;
+                        console.log('Line: \[%d\]', lineCount);
+                        console.log(`Received progress: ${line} of {selectedFile.size}`);  // -------------- (E) Work with the chunk data
+
+                        if (!line) {
+                            continue;
+                        }
+
+                        progressLabel.innerText = `${line}`;
+                    }
+                }
+
+                console.log('Response fully received');
+                //alert('Response fully received');
             }
             catch (error) {
                 console.error(error);

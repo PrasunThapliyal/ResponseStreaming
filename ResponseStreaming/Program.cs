@@ -10,6 +10,9 @@ namespace ResponseStreaming
         {
             var builder = WebApplication.CreateBuilder(args);
 
+            // Remove the default Kestrel request body size limit to allow large file uploads.
+            builder.WebHost.ConfigureKestrel(options => options.Limits.MaxRequestBodySize = null);
+
             // Add services to the container.
 
             builder.Services.AddControllers().AddNewtonsoftJson(o =>
