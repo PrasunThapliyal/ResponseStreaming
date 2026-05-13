@@ -30,6 +30,20 @@
         </div>
     </div>
 
+
+    <div style="border: 1px solid black; padding: 10px; width:350px;">
+        <p>stream/api/v3/streamResponse ..</p>
+        <input type="file" id="fileInput_v3" />
+        <button onclick="responseStreaming_v3()">Upload</button>
+        <br />
+        <br />
+        <div style="display: flex">
+            <label id="progress_v3" style="width: 256px">Progress ..</label>
+            <div id="status_v3"></div>
+            <button onclick="cancelUpload()">Cancel</button>
+        </div>
+    </div>
+
     <script>
 
         var abortController = new AbortController();
@@ -211,6 +225,101 @@
             }
         }
 
+        // stream/api/v3/streamResponse
+        async function responseStreaming_v3() {
+            const progressLabel = document.getElementById('progress_v3');
+            const statusBar = document.getElementById('status_v3');
+            const fileInput = document.getElementById('fileInput_v3');
+            const selectedFile = fileInput.files[0];
+
+            const response = await fetch('/stream/api/v3/streamResponse',
+                {
+                    method: 'POST',
+                    headers: {
+                        'X-File-Name': selectedFile.name,
+                        'X-File-Content-Type': 'application/octet-stream', // selectedFile.type || 'application/octet-stream',
+                        'X-File-Size': selectedFile.size.toString(),
+                        'Content-Type': 'application/octet-stream' // selectedFile.type || 'application/octet-stream'
+                    },
+                    body: selectedFile.stream(),
+                    duplex: 'half',
+                    signal: cancellationSignal
+                });
+
+            // When UI opens a stream reader to the response, the boundaries at which the stream reader reads may not necessarily align with the chunks sent by backend API
+            // Therefore, there must be a way to tell end of 1 line of response (in case the response is line by line, say)
+
+            console.log('fetch called ..');
+
+            // TODO : Test this
+
+            //if (!response.ok) {
+            //    const text = await response.text();
+            //    throw new Error(`HTTP ${response.status}: ${text}`);
+            //}
+
+
+            const reader = response.body.getReader(); // -------------- (A) Get a stream reader for the response
+            const textDecoder = new TextDecoder();
+
+            console.log('response reader acquired ..');
+
+            let lastLine = ''; // This is placeholder for residue left over after end of a valid json string
+            let lineCount = 0;
+            try {
+                while (true) {
+                    const { value, done } = await reader.read(); // -------------- (B) // Read available chunk from the stream; these are raw bytes
+
+                    if (done) {
+                        console.log('response finished ..');
+                        statusBar.innerText = `Response completed`;
+                        //progressLabel.innerText = `Response completed`;
+
+                        break;
+                    }
+                    console.log('Received raw chunk of bytes: %d', value.byteLength);
+
+                    let textValue = textDecoder.decode(value); // -------------- (C) // Convert raw bytes to string
+
+                    let mergedText = `${lastLine}${textValue}`;
+
+                    const lines = mergedText.split(/\r\n|[\r\n]/g);  // -------------- (D) In my case, I'm sending chunks separated by newline
+
+                    lastLine = lines.pop() || '';
+
+                    for (const line of lines) {
+                        lineCount++;
+                        console.log('Line: \[%d\]', lineCount);
+                        console.log(`Received progress: ${line} of {selectedFile.size}`);  // -------------- (E) Work with the chunk data
+
+                        if (!line) {
+                            continue;
+                        }
+
+                        progressLabel.innerText = `${line}`;
+                    }
+                }
+
+                console.log('Response fully received');
+                //alert('Response fully received');
+            }
+            catch (error) {
+                console.error(error);
+
+                if (error.name === 'AbortError') {
+                    //progressLabel.innerText = `Aborted`;
+                    statusBar.innerText = `Aborted`;
+
+                    alert(`The request is cancelled.`);
+                }
+                else {
+                    //progressLabel.innerText = `An error occurred`;
+                    statusBar.innerText = `An error occurred`;
+
+                    alert(`An error occurred during file upload.`);
+                }
+            }
+        }
     </script>
 
 </body>
